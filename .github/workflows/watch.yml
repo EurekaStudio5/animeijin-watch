@@ -1,0 +1,51 @@
+# アニ名人（animeijin.com）の10分おきの見張り。AI は使わない（watch.py＝短いプログラムだけ）。
+# 使う Actions は GitHub 公式のものだけ・コミットで固定（v4 のタグが指すコミット）。
+# 記録は このリポジトリの state ブランチの state.json（watch.py が GitHub の API で読み書き。中身が変わったときだけ書く）。
+name: watch
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+    - cron: "7 0 * * 1"          # 毎週月曜 09:07 JST＝keepalive（watch も同時に1回動く）
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "test＝LINE にテストを1通送るだけ"
+        required: false
+        default: ""
+permissions:
+  contents: read
+concurrency:
+  group: watch
+  cancel-in-progress: false
+jobs:
+  watch:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write            # state ブランチの記録を書くため（main のコードは変えない）
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
+        with:
+          persist-credentials: false
+      - run: python3 watch.py
+        env:
+          LINE_TOKEN: ${{ secrets.LINE_TOKEN }}
+          LINE_TO: ${{ secrets.LINE_TO }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WATCH_MODE: ${{ github.event.inputs.mode }}
+  # 公開リポジトリの定時実行は、リポジトリに60日動きが無いと止まる。週1回（月曜）だけ、この workflow を有効化し直す。
+  # ⚠️これで止まらないことの保証はない（GitHub の仕様の確認は未了）＝止まったことは Claude の毎朝のメール確認でも見る
+  keepalive:
+    if: github.event_name == 'schedule' && github.event.schedule == '7 0 * * 1' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      actions: write
+    steps:
+      - run: >-
+          curl -fsS -X PUT
+          -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}"
+          -H "Accept: application/vnd.github+json"
+          -o /dev/null -w "enable %{http_code}\n"
+          "https://api.github.com/repos/${{ github.repository }}/actions/workflows/watch.yml/enable"
