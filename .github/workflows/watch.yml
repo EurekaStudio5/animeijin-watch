@@ -5,7 +5,7 @@
 name: watch
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "3,13,23,33,43,53 * * * *"   # 毎時0分の混雑を避ける（2026-10-01：*/10 では一度も起動しなかった）
     - cron: "7 0 * * 1"          # 毎週月曜 09:07 JST＝keepalive（watch も同時に1回動く）
   workflow_dispatch:
     inputs:

@@ -341,6 +341,35 @@ class Store:
         return False
 
 
+class LocalStore:
+    """手元（PC）で動かすときの記録の置き場（GitHub の定時実行が動かない間のつなぎ・2026-10-01）。
+    環境変数 WATCH_STATE_FILE のファイルに書く（一時ファイル→置き換え）。"""
+
+    def __init__(self, path):
+        self.path = path
+
+    def load(self):
+        try:
+            raw = json.load(open(self.path, encoding="utf-8"))
+        except FileNotFoundError:
+            print("前回の記録なし（初回）")
+            return blank(), False
+        except Exception:
+            print("前回の記録を読めない")
+            return blank(), False
+        return normalize(raw)
+
+    def save(self, st):
+        try:
+            os.makedirs(os.path.dirname(os.path.abspath(self.path)), exist_ok=True)
+            tmp = self.path + ".tmp"
+            json.dump(st, open(tmp, "w", encoding="utf-8"), ensure_ascii=False)
+            os.replace(tmp, self.path)
+            return True
+        except Exception:
+            return False
+
+
 def jst(ts):
     try:
         return time.strftime("%m/%d %H:%M", time.gmtime(int(ts) + 9 * 3600))
@@ -394,7 +423,7 @@ def main():
                       "（直ったらもう1通）。このメッセージへの返信は不要です。", str(uuid.uuid4()))
         print("テスト送信", r)
         sys.exit(0 if r == "ok" else 1)
-    store = Store()
+    store = LocalStore(os.environ["WATCH_STATE_FILE"]) if os.environ.get("WATCH_STATE_FILE") else Store()
     st, readable = store.load()
     before = json.dumps(st, sort_keys=True)
     result, bad = check()
