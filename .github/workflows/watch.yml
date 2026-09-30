@@ -1,6 +1,7 @@
 # アニ名人（animeijin.com）の10分おきの見張り。AI は使わない（watch.py＝短いプログラムだけ）。
 # 使う Actions は GitHub 公式のものだけ・コミットで固定（v4 のタグが指すコミット）。
 # 記録は このリポジトリの state ブランチの state.json（watch.py が GitHub の API で読み書き。中身が変わったときだけ書く）。
+# 2026-09-30: 最初の push のあと定時実行が2時間起動しなかったので、この行を足して登録し直した。
 name: watch
 on:
   schedule:
