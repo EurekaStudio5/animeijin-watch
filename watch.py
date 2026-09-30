@@ -163,6 +163,9 @@ def check():
     bad = check_once()
     if not bad:
         return "ok", []
+    print("1回目の確認で異常（3分後にもう一度確かめる）:")
+    for x in bad:
+        print("  -", x.split("（")[0])                   # 公開ログには決まった文言だけ
     need = RECHECK_SEC + 3 * REQ_SEC + 5
     if CHECK_BUDGET_SEC - (time.monotonic() - c0) < need:
         return "incomplete", bad                    # 2回目を確かめる時間が無い＝異常と決めない
