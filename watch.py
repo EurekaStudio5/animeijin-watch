@@ -49,8 +49,10 @@ BG_NAMES = ("expiry", "cleanup", "stats", "refund")
 KINDS = ("alert", "remind", "recovered")
 T0 = time.monotonic()
 REQ_SEC = 15                     # 1回の本番への通信の絶対の上限（応答が少しずつ届き続けても打ち切る）
-# 確認に使ってよい時間＝1回目（3通信）＋待ち＋2回目（3通信）＋余裕。3通信とも時間切れになる全面停止でも2回目まで確かめられる
-CHECK_BUDGET_SEC = 3 * REQ_SEC + RECHECK_SEC + 3 * REQ_SEC + 30
+# 1回の確認（3か所・それぞれ通信失敗なら3秒おいて1回やり直す）にかかる最長の時間
+ONE_CHECK_MAX_SEC = 3 * (2 * REQ_SEC + 3)
+# 確認に使ってよい時間＝1回目＋待ち＋2回目＋余裕。全部の通信が時間切れになる全面停止でも2回目まで確かめられる
+CHECK_BUDGET_SEC = ONE_CHECK_MAX_SEC + RECHECK_SEC + ONE_CHECK_MAX_SEC + 30
 RUN_LIMIT_SEC = 540              # 実行全体の上限（workflow の上限10分）。これを過ぎそうなら通知は次の回に回す
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
@@ -100,9 +102,17 @@ def fetch(url, method="GET", headers=None, data=None, sec=20, limit=2_000_000):
 
 # ---------------- 本番の確認 ----------------
 def site(method, path):
-    sep = "&" if "?" in path else "?"
-    return fetch(f"{SITE}{path}{sep}_w={int(time.time())}", method,          # 途中のキャッシュの古い応答を見ないように毎回変える
-                 {"User-Agent": UA, "Cache-Control": "no-cache"}, sec=REQ_SEC)
+    """本番への1回の確認。通信そのものの失敗（応答なし）は3秒おいて1回だけやり直す（2026-10-01：本番に届く前の一瞬の揺れを
+    異常に数えないため。本番が返した 4xx/5xx はやり直さない＝そのまま異常）。"""
+    for attempt in range(2):
+        sep = "&" if "?" in path else "?"
+        code, body = fetch(f"{SITE}{path}{sep}_w={int(time.time())}", method,   # 途中のキャッシュの古い応答を見ないように毎回変える
+                           {"User-Agent": UA, "Cache-Control": "no-cache"}, sec=REQ_SEC)
+        if code is not None:
+            return code, body
+        if attempt == 0:
+            time.sleep(3)
+    return code, body
 
 
 def _is_num(v):
@@ -165,8 +175,8 @@ def check():
         return "ok", []
     print("1回目の確認で異常（3分後にもう一度確かめる）:")
     for x in bad:
-        print("  -", x.split("（")[0])                   # 公開ログには決まった文言だけ
-    need = RECHECK_SEC + 3 * REQ_SEC + 5
+        print("  -", x)                                  # 決まった文言と応答コード・分数だけ（本番のエラー文は入らない）
+    need = RECHECK_SEC + ONE_CHECK_MAX_SEC + 5
     if CHECK_BUDGET_SEC - (time.monotonic() - c0) < need:
         return "incomplete", bad                    # 2回目を確かめる時間が無い＝異常と決めない
     time.sleep(RECHECK_SEC)
@@ -437,7 +447,7 @@ def main():
             st["down_since"] = now
         print("異常（" + str(st["fails"]) + "回目）:")
         for b in bad:
-            print("  -", b.split("（")[0])                 # 公開ログには決まった文言だけ
+            print("  -", b)                                # 決まった文言と応答コード・分数だけ（本番のエラー文は入らない）
         since = st["down_since"]
         body = "\n".join("・" + b for b in bad)
         if not st["alerted"] and (prev >= 1 or not readable):
