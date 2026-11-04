@@ -1,1 +1,1 @@
-{"alert_at": 0, "alerted": false, "down_since": null, "fails": 0, "outbox": [], "ver": 3}
+{"alert_at": 0, "alerted": false, "buzz": {"alert_at": 0, "alerted": false, "down_since": null, "fails": 0, "w_alert_at": 0, "w_alerted": false, "w_floor": null, "w_inc_at": 0, "w_note_at": 0, "w_since": null}, "down_since": null, "fails": 0, "outbox": [], "ver": 3}
