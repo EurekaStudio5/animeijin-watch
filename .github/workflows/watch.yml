@@ -1,4 +1,4 @@
-# アニ名人（animeijin.com）の10分おきの見張り。AI は使わない（watch.py＝短いプログラムだけ）。
+# アニ名人（animeijin.com）とバズ名人！（buzzmeijin.com・2026-11-04〜）の10分おきの見張り。AI は使わない（watch.py＝短いプログラムだけ）。
 # 使う Actions は GitHub 公式のものだけ・コミットで固定（v4 のタグが指すコミット）。
 # 記録は このリポジトリの state ブランチの state.json（watch.py が GitHub の API で読み書き。中身が変わったときだけ書く）。
 # 2026-09-30: 最初の push のあと定時実行が2時間起動しなかったので、この行を足して登録し直した。
@@ -10,9 +10,14 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "test＝LINE にテストを1通送るだけ"
+        description: "normal＝ふだんと同じ1回／dry＝本番を確かめるが LINE は送らず記録も書かない／test＝LINE にテストを1通送るだけ"
         required: false
-        default: ""
+        type: choice
+        options:
+          - normal
+          - dry
+          - test
+        default: normal
 permissions:
   contents: read
 concurrency:
@@ -22,7 +27,7 @@ jobs:
   watch:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 17          # 2026-11-04 バズ名人！を足して確認が長くなった（両方の全面停止でも通知まで届く長さ・watch.py の RUN_LIMIT_SEC）
     permissions:
       contents: write            # state ブランチの記録を書くため（main のコードは変えない）
     steps:
