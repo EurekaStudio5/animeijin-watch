@@ -10,6 +10,7 @@
   バズ名人！（2026-11-04 追加・統合計画 N02）
     4. /healthz が 200 で {"ok": true, ...} か（Render のヘルスチェック先。匿名の利用者は作らない）
     5. /pricing が 200 で、料金の表があるか（テンプレートを描くだけ。DB に触らない）
+    ※バズ名人！へは UA に monitor を入れる（BUZZ_UA＝本番の訪問の数に入らない）
     6. /healthz の fetch_workers（動画を取りに行く自宅PCの取得ワーカーの数）が0でないか
     ⚠️/api/me など匿名の利用者が作られる口は叩かない。
 
@@ -22,23 +23,35 @@
   - 続いていれば念押し（最初の24時間は3時間ごと・以降は1日1回。LINE の月の枠が残り少なければ念押しは送らない）。
   - 直ったら「直った」を1通。
   ②バズ名人！の取得ワーカーが0台（サイトは動いている）
-  - 0台の間は「動画のリンクから作る」が受け付けで断られる（クレジットは取らない＝お金の事故にはならない）。夜に自宅PCが
-    止まっていることもあるので、**続けて60分以上0台**のときだけ知らせる。0台が始まった時刻は、本番の
+  - 0台の間は「動画のリンクから作る」が受け付けで断られる（クレジットは取らない＝お金の事故にはならない）。
+    **続けて15分以上0台**のときだけ知らせる（2026-11-05 に60分から縮めた。理由＝取得ワーカーが NGO（常時起動）とメインPCの
+    2台になり、0台＝両方止まった＝本当に困っている。一瞬の0は本番の側で90秒の猶予（FETCH_ALIVE_SEC）と再起動の猶予が
+    吸い、Claude がワーカーを入れ替える数分・NGO の Windows Update の再起動（5〜15分）は15分で吸う。60分のままでは
+    バズった日に1時間以上リンクから作れないまま気づけない）。0台が始まった時刻は、本番の
     fetch_worker_last_sec（どれかのワーカーが最後に来てからの秒数）を正とする（見張りの回の間に一瞬でも来ていれば、
     そこから数え直す）。本番が秒数を出せない（再起動の後に一度も来ていない等）ときは、見張りが0台を最初に見た時刻から数える。
-  - 「60分」を数え始めるのは、見張りが最後に /healthz の異常（2回の確認で続けて異常、または落ちていて確かめきれなかった回）を
+  - 「15分」を数え始めるのは、見張りが最後に /healthz の異常（2回の確認で続けて異常、または落ちていて確かめきれなかった回）を
     見た時刻より後から（サイトが落ちている間はワーカーもつながれない＝サイトが戻った直後の「長く来ていない」を②に数えない）。
     その回の1回目で /healthz が落ちていた回は②を数えない（3分以内に戻った揺れでは数え始めは動かさない）。料金のページだけの
     異常では②は止めない。
-  - 60分を超えていそうなら①と同じく3分おいて確かめ直し、それでも0台なら知らせる。
+  - 15分を超えていそうなら①と同じく3分おいて確かめ直し、それでも0台なら知らせる。
   - 知らせた件は、1台以上を見るまで閉じない（回の間に一瞬だけ来て、また0台になっても「戻った」も新しい「止まった」も出さない）。
-    念押しは①と同じ間隔で、今の0台が60分以上続いているときだけ。戻ったら「戻った」を1通。
+    念押しは①と同じ間隔で、今の0台が15分以上続いているときだけ。戻ったら「戻った」を1通。
   - 念押しの間隔は、件を知らせてから24時間までは3時間ごと・以降は1日1回（①と同じ）。
-  - 新しい件の「止まった」は、前の②の知らせ（止まった・念押し・戻った）から6時間たつまで出さない（ノートPCを開いたり閉じたり
-    してワーカーが来たり来なかったりするときに連打しない。②はお金の事故ではないので遅れてよい）。LINE の月の枠が残り10通以下
-    なら、②の知らせは送らない（①の分を残す。「止まった」を捨てた件の「戻った」だけが届かないように、②は全部）。
-  - ②の知らせの再送用の番号は、本番の秒数から出した0台の始まり（30分単位）と念押しの周期から決まる番号にする＝GitHub と
-    サブPCのつなぎの両方が同じ件を送っても、LINE が後の方を「受け取り済み」（409）にして二重に届かない（同じ LINE チャンネル）。
+  - 新しい件の「止まった」は、前の②の知らせ（止まった・念押し・戻った）から6時間たっていれば15分で出す。6時間たっていなく
+    ても、新しい件が60分続いたら1回だけ出す（2026-11-05 改。前は6時間あけるだけ＝一度鳴って「戻った」の直後に始まった本当の
+    停止〔直したつもりがまた落ちた、など〕が約5.5時間黙った。60分なら前の版より遅れない）。この「もう1回」で知らせた件が
+    戻った後は、6時間たつまで出さない（ノートPCを開いたり閉じたりして0台を繰り返すときに連打しない）。②はお金の事故では
+    ないので遅れてよい。LINE の月の枠（無料の月200通・ほかの用途と共有）が残り10通以下なら、②の知らせは送らない
+    （①の分を残す。「止まった」を捨てた件の「戻った」だけが届かないように、②は全部）。
+  - 夜の Windows Update などで2台とも止まり、0台が約20〜30分を超えると、「止まった」「戻った」の2通が届く（内容は正しい）。
+  - ⚠️限界：NGO は見張り（つなぎ）と取得ワーカーを兼ねる＝NGO ごと止まった（ノートPCも寝ている）ときは、GitHub の回
+    （3〜9時間おき）でしか気づけない。GitHub だけが知らせた件の「戻った」も次の GitHub の回まで遅れる（①も同じ）。
+  - ②の知らせの再送用の番号は、本番の秒数から出した0台の始まり（15分単位＝しきい値以下にして、別の件が同じ番号にならない
+    ようにする）と念押しの周期から決まる番号にする＝GitHub とサブPCのつなぎの両方が同じ件を送っても、LINE が後の方を
+    「受け取り済み」（409）にして二重に届かない（同じ LINE チャンネル）。「戻った」と念押しの番号は、知らせたときの区切り（w_key）
+    から作る（回の間に一瞬来て0台の始まりが動いても、前の件と同じ番号にならない）。念押しには今の0台の始まりの区切りも入れる
+    （一瞬来て念押しの周期が数え直しになっても、前の念押しと同じ番号にならない）。
   見張り側の回線
   - 両方のサイトへの通信が全部「応答なし」のときは、外のサイト（Google・Cloudflare）にも届くか確かめる。届かなければ
     見張り側の回線が切れている＝「確認できず」（両方の「止まった」「直った」を誤って出さない）。
@@ -78,6 +91,8 @@ import uuid
 SITE = "https://animeijin.com"
 BUZZ = "https://buzzmeijin.com"
 UA = "animeijin-watch/1.0 (+github-actions; uptime check)"
+# バズ名人！へは UA に monitor を入れる（本番の _BOT_RE に当たる＝訪問・画面の計器に数えない。2026-11-05 統合計画 N02）
+BUZZ_UA = "buzzmeijin-healthcheck/1.0 monitor (+animeijin-watch; uptime check)"
 STATE_VER = 3
 STATE_BRANCH = "state"
 RECHECK_SEC = 180                # 1回の実行の中で、異常ならこれだけ待ってもう一度確かめる
@@ -90,11 +105,14 @@ BG_NAMES = ("expiry", "cleanup", "stats", "refund")
 KINDS = ("alert", "remind", "recovered")
 CHANNELS = ("anime", "buzz", "buzzw")   # 送る予定の印：アニ名人／バズ名人！のサイト／バズ名人！の取得ワーカー
 CH_NAME = {"anime": "アニ名人", "buzz": "バズ名人！", "buzzw": "バズ名人！の取得ワーカー"}
-WORKER_ALERT_SEC = 3600          # バズ名人！の取得ワーカーがこれ以上続けて0台なら知らせる
+WORKER_ALERT_SEC = 900           # バズ名人！の取得ワーカーがこれ以上続けて0台なら知らせる（2026-11-05 60分→15分・理由は冒頭）
 FETCH_ALIVE_SEC = 90             # バズ名人！がワーカーを「生きている」と数える秒数（config.FETCH_WORKER_ALIVE_SEC と同じ）
-SAME_SINCE_SEC = 300             # 0台が始まった時刻の見当がこれ以内しか動かないなら記録を書き換えない（毎回書かない）
-W_NEW_GAP_SEC = 6 * 3600         # ②の新しい件の「止まった」は、前の②の知らせからこれだけあける
-KEY_BUCKET_SEC = 1800            # ②の再送用の番号を決める0台の始まりの区切り（2か所の時計の数秒のずれで番号が割れにくいように）
+SAME_SINCE_SEC = 120             # 0台が始まった時刻の見当がこれ以内しか動かないなら記録を書き換えない（毎回書かない。しきい値15分に合わせて300→120）
+W_NEW_GAP_SEC = 6 * 3600         # ②の新しい件の「止まった」は、前の②の知らせからこれだけあける（この間に1回だけ例外）
+WORKER_AGAIN_SEC = 3600          # その例外：6時間の中でも、新しい件がこれだけ続いたら1回だけ知らせる
+# ②の再送用の番号を決める0台の始まりの区切り（2か所の時計の数秒のずれで番号が割れにくいように）。しきい値以下にする
+# （別の件の始まりは必ずしきい値以上離れる＝区切りがこれ以下なら別の件の番号が重ならない）
+KEY_BUCKET_SEC = min(900, WORKER_ALERT_SEC)
 PRICE_RE = re.compile(r"[0-9][0-9,]*\s*円|¥\s*[0-9]")
 T0 = time.monotonic()
 _CODES = []                      # この回の本番への通信の応答コード（None＝応答なし）。見張り側の回線の確かめに使う
@@ -181,7 +199,7 @@ def site(method, path, base=SITE):
     for attempt in range(2):
         sep = "&" if "?" in path else "?"
         code, body = fetch(f"{base}{path}{sep}_w={int(time.time())}", method,   # 途中のキャッシュの古い応答を見ないように毎回変える
-                           {"User-Agent": UA, "Cache-Control": "no-cache"}, sec=REQ_SEC)
+                           {"User-Agent": BUZZ_UA if base == BUZZ else UA, "Cache-Control": "no-cache"}, sec=REQ_SEC)
         if code is not None:
             _CODES.append(code)
             return code, body
@@ -272,6 +290,7 @@ def buzz_once():
     hz_down のときの fw・last は使わない。"""
     down, d = [], None
     code, body = site("GET", "/healthz", BUZZ)
+    at = now_ts()                         # 本番が last を数えた時点に近い時刻（/pricing を待った時間を入れない）
     if code != 200:
         down.append(f"状態の窓口（/healthz）が応答しない（{_code(code)}）")
     else:
@@ -294,7 +313,7 @@ def buzz_once():
         fw = v if isinstance(v, int) and not isinstance(v, bool) and 0 <= v < 10 ** 6 else None
         v = d.get("fetch_worker_last_sec")
         last = int(v) if _is_num(v) else None
-    return {"down": down, "hz_down": hz_down, "fw": fw, "last": last, "at": now_ts()}
+    return {"down": down, "hz_down": hz_down, "fw": fw, "last": last, "at": at}
 
 
 def zero_since(obs, prev):
@@ -302,7 +321,7 @@ def zero_since(obs, prev):
     本番の「最後に来てからの秒数」があればそれを正とする（＝見張りの回の間にワーカーが来ていれば、そこから数え直す）。
     見当が前と SAME_SINCE_SEC 以内しか違わなければ前の値のまま（毎回記録を書き換えない）。
     数が読めない・本番が秒数を出せないときは、前の見当（無ければ見た時刻）から数える。
-    ⚠️ここには「サイトの異常を見た時刻」を混ぜない（再送用の番号を GitHub とつなぎでそろえるため。60分の判断だけ別に下限をかける）。"""
+    ⚠️ここには「サイトの異常を見た時刻」を混ぜない（再送用の番号を GitHub とつなぎでそろえるため。15分の判断だけ別に下限をかける）。"""
     fw, last, at = obs.get("fw"), obs.get("last"), obs["at"]
     if fw is not None and fw >= 1:
         return None
@@ -315,22 +334,34 @@ def zero_since(obs, prev):
 
 
 def zero_counted(zs, b):
-    """60分を数え始める時刻＝0台の始まりと、最後に /healthz の異常を見た時刻の遅い方。"""
+    """15分（WORKER_ALERT_SEC）を数え始める時刻＝0台の始まりと、最後に /healthz の異常を見た時刻の遅い方。"""
     return max(zs, b["w_floor"]) if b.get("w_floor") is not None else zs
 
 
+def new_inc_need(b, at):
+    """新しい件の「止まった」に要る0台の長さ（秒）。None＝今は出さない。
+    前の②の知らせから6時間たった＝15分／たっていないが、前の件が「もう1回」で知らせた件でない＝60分／それ以外＝出さない。"""
+    if at - (b.get("w_note_at") or 0) >= W_NEW_GAP_SEC:
+        return WORKER_ALERT_SEC
+    if not b.get("w_second"):
+        return WORKER_AGAIN_SEC
+    return None
+
+
 def workers_alarming(obs, b):
-    """この観測で、まだ知らせていない0台が60分以上になっているか（3分おいて確かめ直すかの判断に使う）。b＝記録のバズ名人！の分。"""
-    if obs.get("hz_down") or b["w_alerted"] or obs["at"] - (b.get("w_note_at") or 0) < W_NEW_GAP_SEC:
+    """この観測で、まだ知らせていない0台が知らせる長さ（ふだん15分）以上になっているか（3分おいて確かめ直すかの判断に使う）。b＝記録のバズ名人！の分。"""
+    need = new_inc_need(b, obs["at"])
+    if obs.get("hz_down") or b["w_alerted"] or need is None:
         return False                      # 知らせ済み・前の知らせから6時間たっていない＝確かめ直しても送らない
     zs = zero_since(obs, b["w_since"])
-    return zs is not None and obs["at"] - zero_counted(zs, b) >= WORKER_ALERT_SEC
+    return zs is not None and obs["at"] - zero_counted(zs, b) >= need
 
 
 def check(b_state=None):
     """{"anime": (結果, 理由), "buzz": (結果, 観測)}。結果は "ok"|"bad"|"incomplete"。
     バズ名人！の "ok" はサイトが動いているという意味（取得ワーカーの数は観測の fw を見る）。
-    1回目で異常な（または取得ワーカーが60分以上0台に見える）サイトだけ、3分おいてもう一度確かめる（待つのは1回だけ）。
+    1回目で異常な（または取得ワーカーが知らせる長さ〔ふだん15分・前の知らせから6時間以内は60分〕以上0台に見える）サイトだけ、
+    3分おいてもう一度確かめる（待つのは1回だけ）。
     時間は確認を始めた時点から数える（記録の読み込みの時間は含めない）。b_state＝記録のバズ名人！の分（0台の数え方に使う）。
     バズ名人！の観測には "first_down"（この回の1回目でサイトが落ちていたか）・"first_hz_down"（同じく /healthz が）を足して返す。"""
     c0 = time.monotonic()
@@ -363,7 +394,7 @@ def check(b_state=None):
             print("  -", x)                              # 決まった文言と応答コード・分数だけ（本番のエラー文は入らない）
     if need_b:
         print("バズ名人！: 1回目の確認で異常（3分後にもう一度確かめる）:")
-        for x in b1["down"] or ["取得ワーカーが60分以上0台に見える"]:
+        for x in b1["down"] or [f"取得ワーカーが{(new_inc_need(b_state, b1['at']) or WORKER_ALERT_SEC) // 60}分以上0台に見える"]:
             print("  -", x)
     need = RECHECK_SEC + (ANIME_CHECK_MAX_SEC if need_a else 0) + (BUZZ_CHECK_MAX_SEC if need_b else 0) + 5
     if CHECK_BUDGET_SEC - (time.monotonic() - c0) < need:
@@ -459,7 +490,8 @@ def line_quota_left():
 # ---------------- 記録（state ブランチの state.json） ----------------
 def blank_buzz():
     return {"fails": 0, "alerted": False, "down_since": None, "alert_at": 0,
-            "w_since": None, "w_alerted": False, "w_alert_at": 0, "w_floor": None, "w_note_at": 0, "w_inc_at": 0}
+            "w_since": None, "w_alerted": False, "w_alert_at": 0, "w_floor": None, "w_note_at": 0, "w_inc_at": 0,
+            "w_key": None, "w_second": False}
 
 
 def blank():
@@ -565,6 +597,16 @@ def normalize(raw):
                 b[k] = v
             else:
                 bok = False
+        wk = rb.get("w_key")             # 2026-11-05〜。無い（前の版の記録）＝None＝今の0台の始まりから番号を作る
+        if wk is None or (isinstance(wk, int) and not isinstance(wk, bool) and 0 <= wk < 10 ** 9):
+            b["w_key"] = wk
+        else:
+            bok = False
+        v = rb.get("w_second", False)    # 2026-11-05〜。無い（前の版の記録）＝False＝6時間の中の「もう1回」はまだ使える
+        if isinstance(v, bool):
+            b["w_second"] = v
+        else:
+            bok = False
     else:
         bok = False
         if "buzz" in raw:
@@ -583,7 +625,7 @@ def normalize(raw):
     if not bok and last_kind(st["outbox"], "buzzw") == "down" and not b["w_alerted"]:
         b["w_alerted"] = True
         if b["w_since"] is None:
-            b["w_since"] = made_min("buzzw") - WORKER_ALERT_SEC   # 知らせたのは0台が60分続いた後
+            b["w_since"] = made_min("buzzw") - WORKER_ALERT_SEC   # 知らせたのは0台が WORKER_ALERT_SEC 続いた後
     return st, {"anime": ok, "buzz": bok}
 
 
@@ -850,10 +892,10 @@ def step_workers(st, obs, now):
     if zs is None:
         print(f"バズ名人！: 取得ワーカー {obs['fw']}台")
         if b["w_alerted"] and last_kind(st["outbox"], "buzzw") != "up":
-            queue(st, buzzw_recovered(at, b["w_since"], obs["fw"]), "recovered", "buzzw",
-                  stable_key("buzzw", "recovered", (b["w_since"] or 0) // KEY_BUCKET_SEC))
-            b["w_note_at"] = at
-        b.update({"w_since": None, "w_alerted": False, "w_alert_at": 0, "w_inc_at": 0})
+            key = b["w_key"] if b.get("w_key") is not None else (b["w_since"] or 0) // KEY_BUCKET_SEC
+            queue(st, buzzw_recovered(at, b["w_since"], obs["fw"]), "recovered", "buzzw", stable_key("buzzw", "recovered", key))
+            b["w_note_at"] = at           # w_second は残す（「もう1回」で知らせた件の後は、6時間たつまで出さない）
+        b.update({"w_since": None, "w_alerted": False, "w_alert_at": 0, "w_inc_at": 0, "w_key": None})
         return
     b["w_since"] = zs                     # 回の間に一瞬来ていれば始まりは新しくなる（知らせた件は閉じない＝連打しない）
     start = zero_counted(zs, b)
@@ -863,16 +905,24 @@ def step_workers(st, obs, now):
     bucket = zs // KEY_BUCKET_SEC
     if not b["w_alerted"]:
         if dur >= WORKER_ALERT_SEC:
-            if at - (b["w_note_at"] or 0) < W_NEW_GAP_SEC:
+            need = new_inc_need(b, at)
+            if need is None:
                 print("バズ名人！: 前の取得ワーカーの知らせから6時間たっていないので、まだ知らせない")
                 return
+            if dur < need:
+                print(f"バズ名人！: 前の取得ワーカーの知らせから6時間たっていないので、{need // 60}分続くまで待つ")
+                return
             queue(st, buzzw_alert(at, start, obs["fw"] is None), "alert", "buzzw", stable_key("buzzw", "alert", bucket))
+            b["w_second"] = at - (b["w_note_at"] or 0) < W_NEW_GAP_SEC   # 6時間の間の「もう1回」で知らせた件（w_note_at を更新する前に決める）
             b["w_alerted"], b["w_alert_at"], b["w_note_at"], b["w_inc_at"] = True, at, at, at
-    elif dur >= WORKER_ALERT_SEC:         # 念押しは、今の0台が60分以上続いているときだけ
+            b["w_key"] = bucket
+    elif dur >= WORKER_ALERT_SEC:         # 念押しは、今の0台が15分以上続いているときだけ
         gap = REMIND_FIRST_SEC if at - (b["w_inc_at"] or at) < 24 * 3600 else REMIND_LATER_SEC   # 件を知らせてからの時間で
         if at - (b["w_alert_at"] or at) >= gap:
             slot = (at - zs) // REMIND_FIRST_SEC  # 同じ0台の中で3時間ごとに変わる＝自分の念押しどうしは別の番号・2か所ではそろう
-            queue(st, buzzw_remind(at, start, obs["fw"] is None), "remind", "buzzw", stable_key("buzzw", "remind", bucket, slot))
+            key = b["w_key"] if b.get("w_key") is not None else bucket
+            queue(st, buzzw_remind(at, start, obs["fw"] is None), "remind", "buzzw",
+                  stable_key("buzzw", "remind", key, bucket, slot))   # 今の始まりの区切りも入れる（一瞬来て slot が数え直しでも重ならない）
             b["w_alert_at"], b["w_note_at"] = at, at
 
 
